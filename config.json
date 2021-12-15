@@ -1,6 +1,7 @@
 {
-	"data_loc":"/home/jackragless/projects/data/GLOGEN_S2/glogen_sdow/",
+	"data_loc":"/home/jackragless/projects/github/GloGen-GLOssary-GENerator/data/",
 	"corpus_outfile":"ake_corpus.pkl",
+	
 	"corpus":{
 		"wiki_category":"Category:Economics",
 		"corpus_size":100,
@@ -19,7 +20,7 @@
 
 	"trainer":{
 		"model":"distilbert-base-cased",
-		"finetuned_name":"pytest",
+		"finetuned_model_name":"distilbert-base-cased-finetuned-pytest",
 		"train_args":{
 		    "evaluation_strategy": "epoch",
 		    "logging_strategy": "epoch",
@@ -30,5 +31,9 @@
 		    "num_train_epochs":3,
 		    "weight_decay":0.01
 		}
+	},
+
+	"glogen":{
+		"model_dirname":"bert-model-25k-1st"
 	}
 }

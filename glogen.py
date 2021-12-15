@@ -1,9 +1,13 @@
-data_loc = ''
-model_dir = ''
+import json
+CONFIG = json.load(open("config.json", "r"))
 
+
+data_loc = CONFIG['data_loc']
+model_dirname = CONFIG['glogen']['model_dirname']
+import pandas as pd
 import os
 import torch
-if not os.path.isdir(model_dir):
+if not os.path.isdir(data_loc+model_dirname):
     print('Model directory does not exist!')
     exit()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -16,8 +20,6 @@ from scipy.special import softmax
 import numpy as np
 import pandas as pd
 from text_cleaner import cleanText
-penn2wikt = {ele['penn_tag']:ele['wikt_tag'] for ele in pd.read_csv(data_loc+'penn2wikt_tags.csv').to_dict('records')}
-
 import wikipedia 
 from wiktionaryparser import WiktionaryParser
 parser = WiktionaryParser()
@@ -30,10 +32,21 @@ err_msg = ['POS NOT FOUND.', 'KP NOT FOUND.']
 from Levenshtein import ratio as lev
 
 
+penn2wikt = {'CC': 'conjunction', 'CD': 'numeral', 'DT': 'determiner',
+'EX': 'predicative', 'FW': 'noun', 'IN': 'preposition', 'JJ': 'adjective', 
+'JJR': 'adjective', 'JJS': 'adjective', 'LS': 'symbol', 'MD': 'letter', 
+'NN': 'noun', 'NNS': 'noun', 'NNP': 'noun', 'NNPS': 'noun',
+ 'PDT': 'predicative', 'POS': 'pronoun', 'PRP': 'pronoun', 
+ 'PRP$': 'pronoun', 'RB': 'adverb', 'RBR': 'adverb', 'RBS': 'adverb', 
+ 'RP': 'particle', 'SYM': 'symbol', 'TO': 'preposition', 'UH': 'interjection', 
+ 'VB': 'verb', 'VBD': 'verb', 'VBG': 'participle', 'VBN': 'participle', 
+ 'VBP': 'verb', 'VBZ': 'verb', 'WDT': 'determiner', 
+ 'WP': 'pronoun', 'WP$': 'pronoun', 'WRB': 'adverb'}
 
-tokenizer = transformers.AutoTokenizer.from_pretrained(model_dir)
+
+tokenizer = transformers.AutoTokenizer.from_pretrained(data_loc+model_dirname)
 assert isinstance(tokenizer, transformers.PreTrainedTokenizerFast)
-ake_model = transformers.AutoModelForTokenClassification.from_pretrained(model_dir)
+ake_model = transformers.AutoModelForTokenClassification.from_pretrained(data_loc+model_dirname)
 
 
 

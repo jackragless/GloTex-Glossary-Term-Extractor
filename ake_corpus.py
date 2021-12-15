@@ -215,7 +215,7 @@ del temp_kp_pool
 
 
 
-for kw,meta in tqdm(kp_pool.items(), desc='ADDING KPS TO CORPUS'):
+for kw,meta in tqdm(kp_pool.items()):
 	for page,dist in meta['MTCHS'].items():
 		if dist>=0 and dist<CONFIG['thresh']['SDOW']:
 			corpus[page]['kps'].add(kw)

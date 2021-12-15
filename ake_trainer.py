@@ -93,7 +93,7 @@ print(data_loc)
 
 
 args = tf.TrainingArguments(
-    f"{CONFIG['model']}-finetuned-{CONFIG['finetuned_name']}",
+    CONFIG['finetuned_model_name'],
     # output_dir = './model/',
     evaluation_strategy = CONFIG['train_args']['evaluation_strategy'],
     logging_strategy = CONFIG['train_args']['logging_strategy'],
