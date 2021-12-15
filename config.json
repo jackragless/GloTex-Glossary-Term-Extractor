@@ -1,0 +1,34 @@
+{
+	"data_loc":"/home/jackragless/projects/data/GLOGEN_S2/glogen_sdow/",
+	"corpus_outfile":"ake_corpus.pkl",
+	"corpus":{
+		"wiki_category":"Category:Economics",
+		"corpus_size":100,
+		"ngram_cutoff":{
+			"1":20000,
+			"2":20000,
+			"3":20000
+		},
+		"thresh":{
+			"MF":1,
+			"HA":0.5,
+			"HT":0.25,
+			"SDOW":4
+		}
+	},
+
+	"trainer":{
+		"model":"distilbert-base-cased",
+		"finetuned_name":"pytest",
+		"train_args":{
+		    "evaluation_strategy": "epoch",
+		    "logging_strategy": "epoch",
+		    "save_strategy": "epoch",
+		    "learning_rate":2e-5,
+		    "per_device_train_batch_size":8,
+		    "per_device_eval_batch_size":8,
+		    "num_train_epochs":3,
+		    "weight_decay":0.01
+		}
+	}
+}
