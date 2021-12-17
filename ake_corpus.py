@@ -19,6 +19,7 @@ from requests.exceptions import ConnectionError
 import nltk
 import sdow as database
 import urllib.parse
+import sdow
 
 
 person_set = set(pd.read_csv(data_loc+'person_ent_list.csv')['name'])
@@ -121,20 +122,12 @@ def textToNgramSet(text):
 	return ngram_set
 
 
-def sdowDistance(orig, dest):
-	db = database.Database(sdow_database=data_loc+'sdow.sqlite')
-	try:
-		return len(db.compute_shortest_paths(db.fetch_page(orig)[0],db.fetch_page(dest)[0])[0])-1
-	except (ValueError,IndexError,TypeError):
-		return None
-
-
 def minSdowDistance(orig,url_variants):
 	final = []
 	minSoFar = sys.maxsize
 	for sublink in list(url_variants):
 		temp_target = urllib.parse.unquote(sublink.replace('/wiki/',''))
-		sdow_dist = sdowDistance(orig,temp_target)
+		sdow_dist = sdow.sdowDistance(orig,temp_target)
 		if sdow_dist and sdow_dist < minSoFar:
 			minSoFar = sdow_dist
 	if minSoFar == sys.maxsize:
@@ -159,7 +152,7 @@ def sdowDistWorker(wiki_obj):
 	v = wiki_obj[1]
 	for m in v['MTCHS'].keys():
 		v['MTCHS'][m] = minSdowDistance(m,v['UURLS'])
-	del v['AURLS'], v['HF']
+	del v['AURLS']
 	return k,v
 
 
@@ -182,7 +175,7 @@ with concurrent.futures.ProcessPoolExecutor() as executor:
 for wiki_page,add_kps in temp_matches:
 	for kp,_bool in add_kps.items():
 		if _bool == False:
-			kp_pool[kp]['MTCHS'][wiki_page] = None
+			kp_pool[kp]['MTCHS'][wiki_page] = 0
 		kp_pool[kp]['MF']+=1
 
 del temp_matches
@@ -195,7 +188,7 @@ for k,v in kp_pool.items():
 	if v['AURLS']:
 		v['HA'] = v['AURLS'].count(max(set(v['AURLS']),key=v['AURLS'].count))/len(v['AURLS'])
 	kp_pool[k] = v
-	if v['MF']>=CONFIG['thresh']['MF'] and v['HA']>=CONFIG['thresh']['HA'] and v['HT']>=CONFIG['thresh']['HA']:
+	if v['MF']>=CONFIG['metric']['MF'] and v['HA']>=CONFIG['metric']['HA'] and v['HT']>=CONFIG['metric']['HA']:
 		temp_kp_pool[k] = v
 
 
@@ -206,18 +199,21 @@ kp_pool = temp_kp_pool
 
 del temp_kp_pool
 
-with concurrent.futures.ProcessPoolExecutor() as executor:
-	temp_kp_pool = list(tqdm(executor.map(sdowDistWorker, kp_pool.items()), total=len(kp_pool.items()), desc = '4/5 compute_sdow_metrics'))
-for obj in temp_kp_pool:
-	kp_pool[obj[0]] = obj[1]
-del temp_kp_pool
+if bool(CONFIG['sdow_enabled']):
+	with concurrent.futures.ProcessPoolExecutor() as executor:
+		temp_kp_pool = list(tqdm(executor.map(sdowDistWorker, kp_pool.items()), total=len(kp_pool.items()), desc = '4/5 compute_sdow_metrics'))
+	for obj in temp_kp_pool:
+		kp_pool[obj[0]] = obj[1]
+	del temp_kp_pool
+else:
+	print('stage 4/5 sdow_metrics skipped.')
 
 
 
 
 for kw,meta in tqdm(kp_pool.items()):
 	for page,dist in meta['MTCHS'].items():
-		if dist>=0 and dist<CONFIG['thresh']['SDOW']:
+		if dist>=0 and dist<CONFIG['metric']['SDOW']:
 			corpus[page]['kps'].add(kw)
 
 del kp_pool
@@ -263,7 +259,6 @@ def biogenWorker(wiki_obj):
 
 with concurrent.futures.ProcessPoolExecutor() as executor:
 	biogen = sum(list(tqdm(executor.map(biogenWorker, corpus.items()), total=len(corpus.items()), desc='5/5 biogen')),[])
-# print(biogen)
 
 
 

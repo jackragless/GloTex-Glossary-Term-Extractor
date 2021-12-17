@@ -10,12 +10,13 @@
 			"2":20000,
 			"3":20000
 		},
-		"thresh":{
+		"metric":{
 			"MF":1,
 			"HA":0.5,
 			"HT":0.25,
-			"SDOW":4
-		}
+			"sdow":4
+		},
+		"sdow_enabled":1,
 	},
 
 	"trainer":{
