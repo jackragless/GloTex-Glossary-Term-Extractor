@@ -1,6 +1,7 @@
 import pickle
+import time
 database = pickle.load(open("data/sdow_graph.pkl", "rb"))
-id2title = pickle.load(open("data/id2title.pkl", "rb"))
+title2id = pickle.load(open("data/title2id_lower.pkl", "rb"))
 
 def sanitize(page_title):
   return page_title.strip().replace(' ', '_').replace("'", "\\'").replace('"', '\\"')
@@ -75,11 +76,14 @@ def bfs(source_page_id, target_page_id):
   # Continue the breadth first search until a path has been found or either of the unvisited lists
   # are empty.
   while (len(paths) == 0) and ((len(unvisited_forward) != 0) and (len(unvisited_backward) != 0)):
+    # if datetime.now()-start_time>10:
+        # return 99
     # Run the next iteration of the breadth first search in whichever direction has the smaller number
     # of links at the next level.
-    forward_links_count = [database[k]['outgoing_links_count'] for k in unvisited_forward.keys()]
-    backward_links_count = [database[k]['incoming_links_count'] for k in unvisited_backward.keys()]
+    forward_links_count = sum([len(database[k]['outgoing_links_count']) for k in unvisited_forward.keys()])
+    backward_links_count = sum([len(database[k]['incoming_links_count']) for k in unvisited_backward.keys()])
 
+    # print(forward_links_count)
     if forward_links_count < backward_links_count:
       #---  FORWARD BREADTH FIRST SEARCH  ---#
       forward_depth += 1
@@ -87,7 +91,7 @@ def bfs(source_page_id, target_page_id):
       # Fetch the pages which can be reached from the currently unvisited forward pages.
       # The replace() bit is some hackery to handle Python printing a trailing ',' when there is
       # only one key.
-      outgoing_links = [(k,list(map(int, database[k]['outgoing_links'].split('|')))) for k in unvisited_forward.keys()]
+      outgoing_links = [(k,list(map(int, database[k]['outgoing_links'].split('|')))) for k in unvisited_forward.keys() if database[k]['outgoing_links']]
 
       # Mark all of the unvisited forward pages as visited.
       for page_id in unvisited_forward:
@@ -164,7 +168,11 @@ def bfs(source_page_id, target_page_id):
 
 
 def sdowDistance(orig, dest):
-  try:
-    return len(bfs(id2title[sanitize(orig)],id2title[sanitize(dest)])[0])-1
-  except (ValueError,IndexError,TypeError):
-    return None
+    try:
+        return len(bfs(title2id[sanitize(orig)],title2id[sanitize(dest)])[0])-1
+    except KeyError:
+        try:
+            return len(bfs(title2id[sanitize(orig).lower()],title2id[sanitize(dest).lower()])[0])-1
+        except (ValueError,IndexError,TypeError,KeyError):
+            return None
+    # return orig,dest,None

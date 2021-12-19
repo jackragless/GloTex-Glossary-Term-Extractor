@@ -1,22 +1,22 @@
 {
-	"data_loc":"/home/jackragless/projects/github/GloGen-GLOssary-GENerator/data/",
+	"data_loc":"/home/ubuntu/GloGen-GLOssary-GENerator/data/",
 	"corpus_outfile":"ake_corpus.pkl",
 	
 	"corpus":{
 		"wiki_category":"Category:Economics",
-		"corpus_size":100,
+		"corpus_size":100000,
 		"ngram_cutoff":{
 			"1":20000,
 			"2":20000,
 			"3":20000
 		},
 		"metric":{
-			"MF":1,
+			"MF":3,
 			"HA":0.5,
 			"HT":0.25,
-			"sdow":4
+			"SDOW":4
 		},
-		"sdow_enabled":1,
+		"sdow_enabled":1
 	},
 
 	"trainer":{

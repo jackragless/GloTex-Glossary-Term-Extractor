@@ -16,10 +16,13 @@ import re
 import itertools
 import sys
 from requests.exceptions import ConnectionError
+from wikipedia.exceptions import DisambiguationError, PageError
 import nltk
+nltk.download('averaged_perceptron_tagger')
 import sdow as database
 import urllib.parse
-import sdow
+if bool(CONFIG['sdow_enabled']):
+    import sdow
 
 
 person_set = set(pd.read_csv(data_loc+'person_ent_list.csv')['name'])
@@ -94,7 +97,7 @@ def wikiPageMineWorker(title):
 			if "/wiki/" in kw['href'] and kw.text.strip():
 				kps[kw.text.strip()] = kw['href']
 		return cleanChinkWikiPage({'title':title,'url':url,'text':text, 'kps':kps})
-	except ConnectionError:
+	except (ConnectionError,DisambiguationError,PageError):
 		return None
 
 
@@ -195,10 +198,14 @@ for k,v in kp_pool.items():
 
 print(len(temp_kp_pool),'/',len(kp_pool),'remain')
 kp_pool = temp_kp_pool
-
-
 del temp_kp_pool
 
+# temparr = []
+# for k,v in kp_pool.items():
+    # [temparr.append({'orig':k,'dest':ele}) for ele in v['MTCHS'].keys()]
+# pd.DataFrame(temparr).to_csv('test_sdow_titles.csv', index=False)
+# del temparr
+ 
 if bool(CONFIG['sdow_enabled']):
 	with concurrent.futures.ProcessPoolExecutor() as executor:
 		temp_kp_pool = list(tqdm(executor.map(sdowDistWorker, kp_pool.items()), total=len(kp_pool.items()), desc = '4/5 compute_sdow_metrics'))

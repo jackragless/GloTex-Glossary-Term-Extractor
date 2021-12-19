@@ -1,1 +1,4 @@
-data/
+bert-model-25k-1st/
+sdow.sqlite
+sdow_graph.pkl
+id2title.pkl
