@@ -1,7 +1,12 @@
+import json
+CONFIG = json.load(open("config.json", "r"))
+data_loc = CONFIG['data_loc']
+
+
 import pickle
 import time
-database = pickle.load(open("data/sdow_graph.pkl", "rb"))
-title2id = pickle.load(open("data/title2id_lower.pkl", "rb"))
+database = pickle.load(open(data_loc+"sdow_graph.pkl", "rb"))
+title2id = pickle.load(open(data_loc+"data/title2id_lower.pkl", "rb"))
 
 def sanitize(page_title):
   return page_title.strip().replace(' ', '_').replace("'", "\\'").replace('"', '\\"')
