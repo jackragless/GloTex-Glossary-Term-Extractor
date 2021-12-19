@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Text Input | GloGen{% endblock %}
+
+{% block content %}
+    <style>
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .column {
+            flex: 25%;
+            /* padding: 50px; */
+        }
+
+        @media screen and (max-width: 1000px) {
+            .row {
+                flex-direction: column;
+            }
+            .column {
+            flex: 25%;
+            /* padding: 10px 50px; */
+            }
+            #fixed_div{
+            position:initial;
+            }
+        }
+
+    </style>
+    <div class="row">
+        <div class="column" id="c1">
+            <form id='textbox_form' method="post">
+                {% csrf_token %}
+                <textarea class="form-control" name="textbox" id="textbox" rows=20>{{textbox_content}}</textarea><br>
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </form> 
+        </div>
+        <div class="column" id='c2'>
+            <ul class="list-group list-group-flush">
+            {% for k,v in glogen_dict.items %}
+            <li class="list-group-item"><b>{{k}}</b> : {{v}}</li>
+            {%endfor%}
+            </ul>
+        </div>
+
+    </div>
+{% endblock %}
