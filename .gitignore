@@ -1,4 +1,5 @@
 bert-model-25k-1st/
+old/
 sdow.sqlite
 sdow_graph.pkl
 id2title.pkl

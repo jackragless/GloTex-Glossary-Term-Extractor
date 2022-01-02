@@ -28,9 +28,9 @@ def biogenReformat(data):
 	final = {'id':[],'tokens':[],'pos_tags':[],'bio_tags':[]}
 	for _id,page in tqdm(enumerate(data), desc='bio_reformat'):
 		final['id'].append(_id)
-		final['tokens'].append([ele['token'] for ele in page])
-		final['pos_tags'].append([pos_ref_dict[ele['pos']] for ele in page])
-		final['bio_tags'].append([bio_ref_dict[ele['bio']] for ele in page])
+		final['tokens'].append([ele[0] for ele in page])
+		final['pos_tags'].append([pos_ref_dict[ele[1]] for ele in page])
+		final['bio_tags'].append([bio_ref_dict[ele[2]] for ele in page])
 	return final
 
 
@@ -55,7 +55,8 @@ def BERTTokenize(data):
 	return tokenized_inputs
 
 
-corpus = pickle.load(open(data_loc+corpus_filename, "rb"))
+# corpus = pickle.load(open(data_loc+corpus_filename, "rb"))
+corpus = json.load(open(data_loc+'biogen.json'))
 dataset = ds.Dataset.from_dict(biogenReformat(corpus))
 dataset.features['pos_tags'] = ds.Sequence(feature=ds.ClassLabel(num_classes=len(pos_ref_dict.keys()), names=list(pos_ref_dict.keys())))
 dataset.features['bio_tags'] = ds.Sequence(feature=ds.ClassLabel(num_classes=len(bio_ref_dict.keys()), names=list(bio_ref_dict.keys())))

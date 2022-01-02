@@ -13,6 +13,7 @@ from text_cleaner import cleanText
 import pandas as pd
 import pickle
 import re
+import numpy as np
 import itertools
 import sys
 from requests.exceptions import ConnectionError
@@ -22,7 +23,7 @@ nltk.download('averaged_perceptron_tagger')
 import sdow as database
 import urllib.parse
 if bool(CONFIG['sdow_enabled']):
-    import sdow
+	import sdow
 
 
 person_set = set(pd.read_csv(data_loc+'person_ent_list.csv')['name'])
@@ -80,8 +81,11 @@ def cleanChinkWikiPage(page_obj):
 		'not_person': not (KP in person_set)
 		}
 
-		if all(condition_dict.keys()):
-			filt_kps[KP] = URL
+		# filt_kps[KP] = condition_dict
+		if all(condition_dict.values()):
+		    filt_kps[KP] = URL
+		# else:
+		    # filt_kps['DEL '+str(KP)] = URL
 
 	page_obj['kps'] = filt_kps
 	return page_obj
@@ -108,12 +112,17 @@ corpus = [ele for ele in corpus if ele]
 corpus = corpus[:min(CONFIG['corpus_size'],len(corpus))]
 corpus = {page['title']:dict(itertools.islice(page.items(),1,None)) for page in corpus}
 
+
 ###########################################################################################
 ###########################################################################################
 #kp_pool
 ###########################################################################################
 ###########################################################################################
-
+# corpus = pickle.load( open( "data/M2_save.pkl", "rb" ) )
+# corpus = {page['title']:dict(itertools.islice(page.items(),1,None)) for page in corpus}
+# for k in corpus.keys():
+# 	corpus[k]['kps'] = corpus[k]['kws']
+# 	del corpus[k]['kws']
 
 def textToNgramSet(text):
 	ngram_set = set()
@@ -139,7 +148,6 @@ def minSdowDistance(orig,url_variants):
 
 
 def kpMetricWorker(page_obj):
-	global kp_pool
 	final = {}
 	set_text = textToNgramSet(page_obj[1]['text'])
 	kps = page_obj[1]['kps']
@@ -150,12 +158,15 @@ def kpMetricWorker(page_obj):
 			final[kp] = True
 	return page_obj[0], final
 
+
 def sdowDistWorker(wiki_obj):
 	k = wiki_obj[0]
 	v = wiki_obj[1]
+	del v['AURLS']
+	if v['MF']>max_mf:
+		return k,v
 	for m in v['MTCHS'].keys():
 		v['MTCHS'][m] = minSdowDistance(m,v['UURLS'])
-	del v['AURLS']
 	return k,v
 
 
@@ -183,49 +194,50 @@ for wiki_page,add_kps in temp_matches:
 
 del temp_matches
 
-
 temp_kp_pool = {}
 for k,v in kp_pool.items():
 	if v['MF']>0:
-		v['HT'] = round(v['HF']/v['MF'], 2) 
+		v['HT'] = round(v['HF']/v['MF'], 2)
 	if v['AURLS']:
 		v['HA'] = v['AURLS'].count(max(set(v['AURLS']),key=v['AURLS'].count))/len(v['AURLS'])
 	kp_pool[k] = v
-	if v['MF']>=CONFIG['metric']['MF'] and v['HA']>=CONFIG['metric']['HA'] and v['HT']>=CONFIG['metric']['HA']:
-		temp_kp_pool[k] = v
 
+
+temp_kp_pool = {}
+temp_arr = np.array([ele['MF'] for ele in kp_pool.values()])
+max_mf = np.mean(temp_arr) + 2*np.std(temp_arr)
+for k,v in kp_pool.items():
+	if v['MF']>=CONFIG['metric']['MF'] and v['MF']<max_mf and v['HA']>=CONFIG['metric']['HA'] and v['HT']>=CONFIG['metric']['HA']:
+		temp_kp_pool[k] = v
 
 
 print(len(temp_kp_pool),'/',len(kp_pool),'remain')
 kp_pool = temp_kp_pool
+
+
+
 del temp_kp_pool
 
-# temparr = []
-# for k,v in kp_pool.items():
-    # [temparr.append({'orig':k,'dest':ele}) for ele in v['MTCHS'].keys()]
-# pd.DataFrame(temparr).to_csv('test_sdow_titles.csv', index=False)
-# del temparr
  
 if bool(CONFIG['sdow_enabled']):
 	with concurrent.futures.ProcessPoolExecutor() as executor:
 		temp_kp_pool = list(tqdm(executor.map(sdowDistWorker, kp_pool.items()), total=len(kp_pool.items()), desc = '4/5 compute_sdow_metrics'))
-	for obj in temp_kp_pool:
-		kp_pool[obj[0]] = obj[1]
-	del temp_kp_pool
+		for obj in temp_kp_pool:
+			kp_pool[obj[0]] = obj[1]
+		del temp_kp_pool
 else:
 	print('stage 4/5 sdow_metrics skipped.')
 
-
-
+pickle.dump(kp_pool, open(data_loc+'kp_pool.pkl', "wb"))
 
 for kw,meta in tqdm(kp_pool.items()):
 	for page,dist in meta['MTCHS'].items():
-		if dist>=0 and dist<CONFIG['metric']['SDOW']:
+		if dist and dist>=0 and dist<CONFIG['metric']['SDOW']:
 			corpus[page]['kps'].add(kw)
-
 del kp_pool
 
 
+pickle.dump(corpus, open(data_loc+'corpus_augmented.pkl', "wb"))
 
 
 ###########################################################################################
@@ -253,12 +265,12 @@ def biogenWorker(wiki_obj):
 			pos = tup[1]
 			phrase_split = phrase.split(joinstr)
 			if len(phrase_split)>1:
-				temp.append({'token':phrase_split[0], 'pos':'PH', 'bio':'B'})
-				[temp.append({'token':word, 'pos':'PH', 'bio':'I'}) for word in phrase_split[1:]]
+				temp.append((phrase_split[0],'PH','B'))
+				[temp.append((word,'PH','I')) for word in phrase_split[1:]]
 			elif phrase.lower() in kps:
-				temp.append({'token':phrase, 'pos':pos, 'bio':'B'})
+				temp.append((phrase,pos,'B'))
 			else:
-				temp.append({'token':phrase, 'pos':pos, 'bio':'O'})
+				temp.append((phrase,pos,'O'))
 		final.append(temp)
 
 	return final

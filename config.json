@@ -1,10 +1,10 @@
 {
-	"data_loc":"/home/ubuntu/GloGen-GLOssary-GENerator/data/",
+	"data_loc":"/home/jackragless/projects/github/GloGen-GLOssary-GENerator/data/",
 	"corpus_outfile":"ake_corpus.pkl",
 	
 	"corpus":{
 		"wiki_category":"Category:Economics",
-		"corpus_size":100000,
+		"corpus_size":100,
 		"ngram_cutoff":{
 			"1":20000,
 			"2":20000,
@@ -16,7 +16,7 @@
 			"HT":0.25,
 			"SDOW":4
 		},
-		"sdow_enabled":1
+		"sdow_enabled":0
 	},
 
 	"trainer":{
@@ -26,11 +26,12 @@
 		    "evaluation_strategy": "epoch",
 		    "logging_strategy": "epoch",
 		    "save_strategy": "epoch",
-		    "learning_rate":2e-5,
+		    "learning_rate":5e-5,
 		    "per_device_train_batch_size":8,
 		    "per_device_eval_batch_size":8,
-		    "num_train_epochs":3,
-		    "weight_decay":0.01
+		    "num_train_epochs":1,
+		    "weight_decay":0.01,
+		    "seed":11
 		}
 	},
 
