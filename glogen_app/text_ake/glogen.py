@@ -1,5 +1,7 @@
 import nltk
+nltk.download('omw-1.4')
 nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
 from nltk.corpus import stopwords
 nltk.download('stopwords', quiet=True)
 stop_words = set(stopwords.words('english'))
@@ -96,36 +98,41 @@ def cleanText(text_to_clean, remove_bracket_content_bool=False, remove_grammar_b
 
 
 
-data_loc = '/home/jackragless/projects/github/GloGen-GLOssary-GENerator/data/'
-model_dirname = 'bert-model-25k-1st/'
+data_loc = '/home/jackragless/projects/github/GloGen-GLOssary-GENerator/data/distilbert-base-cased-finetuned-doctrine50k/'
+model_dirname = 'checkpoint-318480/'
+
 
 import pandas as pd
 import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 import torch
-# if not os.path.isdir('/home/jackragless/projects/github/GloGen-GLOssary-GENerator/data/bert-model-25k-1st/'):
-#     print('Model directory does not exist!')
-#     exit()
+if not os.path.isdir(data_loc+model_dirname):
+    print('Model directory does not exist!')
+    exit()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Using device:', str(device).upper())
+
 
 from tqdm import tqdm
 import transformers
 import nltk
 from scipy.special import softmax
 import numpy as np
-import pandas as pd
-# from text_cleaner import cleanText
 import wikipedia 
 from wiktionaryparser import WiktionaryParser
 parser = WiktionaryParser()
 parser.set_default_language('english')
 from sentence_transformers import SentenceTransformer, util
 semsim_model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import re
+from Levenshtein import ratio as lev
+from bs4 import GuessedAtParserWarning
+import warnings
+warnings.filterwarnings('ignore', category=GuessedAtParserWarning)
+
 
 err_msg = ['POS NOT FOUND.', 'KP NOT FOUND.']
-
-from Levenshtein import ratio as lev
-
 
 penn2wikt = {'CC': 'conjunction', 'CD': 'numeral', 'DT': 'determiner',
 'EX': 'predicative', 'FW': 'noun', 'IN': 'preposition', 'JJ': 'adjective', 
@@ -136,8 +143,9 @@ penn2wikt = {'CC': 'conjunction', 'CD': 'numeral', 'DT': 'determiner',
  'RP': 'particle', 'SYM': 'symbol', 'TO': 'preposition', 'UH': 'interjection', 
  'VB': 'verb', 'VBD': 'verb', 'VBG': 'participle', 'VBN': 'participle', 
  'VBP': 'verb', 'VBZ': 'verb', 'WDT': 'determiner', 
- 'WP': 'pronoun', 'WP$': 'pronoun', 'WRB': 'adverb'}
-
+ 'WP': 'pronoun', 'WP$': 'pronoun', 'WRB': 'adverb', '#':'punct',
+ '$':'punct', '“':'punct', '``':'punct', '(':'punct', ')':'punct',
+ ',':'punct', ':':'punct',"''":'punct','.':'punct'}
 
 tokenizer = transformers.AutoTokenizer.from_pretrained(data_loc+model_dirname)
 assert isinstance(tokenizer, transformers.PreTrainedTokenizerFast)
@@ -149,14 +157,14 @@ def attentionMatrixToSoftmax(input_ids, probs):
     final = []
     id_to_label = {0:'O',1:'B',2:'I'}
     for i,word in enumerate(probs[0][0]):
-        final.append((tokenizer.decode(input_ids[0][i]),        {id_to_label[i]:prob for i,prob in enumerate(softmax([prob.item() for prob in word]))}))
+        final.append((tokenizer.decode(input_ids[0][i]),{id_to_label[i]:prob for i,prob in enumerate(softmax([prob.item() for prob in word]))}))
     return final
 
 
 def BERTPredict(text):
     #predictions
     global ake_model
-    tok_sent = tokenizer(text, return_tensors="pt")
+    tok_sent = tokenizer(text, return_tensors="pt", truncation=True)
     attmat = ake_model(tok_sent['input_ids'],attention_mask=tok_sent['attention_mask'])
     softmax = attentionMatrixToSoftmax(tok_sent['input_ids'], attmat)
     
@@ -209,17 +217,12 @@ def KPParse(bert_preds, lev_ratio):
     return {ele[0]:ele[1] for ele in final}
         
     
-    
-    # return final
-    
 def topKPs(text, lev_ratio=0.85):
     final = set()
     combined = []
     for sent in tqdm(nltk.sent_tokenize(text), desc='AKE'):
         combined.extend(BERTPredict(sent))
     return KPParse(combined, lev_ratio)
-
-
 
 
 def wiktDictSimplify(wikt_dict):
@@ -230,92 +233,86 @@ def wiktDictSimplify(wikt_dict):
             if pos not in final.keys():
                 final[pos] = []
             for _def in text['text'][1:]:
-                if _def[0]=='(':
+                if _def and _def[0]=='(':
                     final[pos].append({'cat':_def[1:_def.find(')')].strip().lower(),'def':_def[_def.find(')')+1:].strip()})
                 else:
                     final[pos].append({'cat':None,'def':_def.strip()})
-    if not final:
-        raise ValueError("This keyphrase does not exist in Wiktionary.")
     return final
 
 
 def wiktPredictBERT(def_candidates, source_text):
-    
+
     global semsim_model
     
-    sentences1 = []
+    clean_sents = []
     orig_sents = []
-    for _def in def_candidates:
-        orig_sents.append(_def)
-        if _def['cat']:
-            sentences1.append(cleanText(_def['cat']+' '+_def['def'], True, True, True, True, True))
+    for obj in def_candidates:
+        orig_sents.append(obj)
+        if obj['cat']:
+            clean_sents.append(cleanText(obj['cat']+' '+obj['def'], True, True, True, True, True))
         else:
-            sentences1.append(cleanText(_def['def'], True, True, True, True, True))
+            clean_sents.append(cleanText(obj['def'], True, True, True, True, True))
     
-    sentences2 = [source_text]
-
-    embeddings1 = semsim_model.encode(sentences1, convert_to_tensor=True)
-    embeddings2 = semsim_model.encode(sentences2, convert_to_tensor=True)
+    embeddings1 = semsim_model.encode(clean_sents, convert_to_tensor=True)
+    embeddings2 = semsim_model.encode([source_text], convert_to_tensor=True)
     cosine_scores = util.pytorch_cos_sim(embeddings1, embeddings2)
     scores_arr = [ele.item() for ele in list(cosine_scores)]
     
     return orig_sents[scores_arr.index(max(scores_arr))]['def']
 
+
 def wikiDefgen(KP, err_msg='Wikipedia page not found!'):
     try:
         wiki_def = wikipedia.summary(KP,auto_suggest=False)
         return wiki_def.split('.')[0]+'.'
-    except (wikipedia.exceptions.PageError,wikipedia.DisambiguationError):
+    except:
         pass
     return err_msg
 
 
-    
-def defgen(KP, pos, source_text, depth=0):
-    try:
-        wikt_query = wiktDictSimplify(parser.fetch(KP))[pos]
-    except KeyError: #wiktionary POS does not exist
-        if depth>=2:
-            return ''
-        wikt_query = wiktDictSimplify(parser.fetch(KP))
-        if len(wikt_query.keys())==1:
-            wikt_query = list(wikt_query.items())[0][1]
-        else:
-            return wikiDefgen(KP,err_msg[0])
-    except ValueError: #wiktionary entry does not exist
-        if depth>=2:
-            return ''
-        if any([grammar in KP for grammar in [' - '," ' "]]):
-            return defgen(KP.replace(' - ','-').replace(" ' ","'"), pos, source_text, depth+1)
-        if KP[-1] == 's':
-            temp = defgen(KP[:-1], pos, source_text, depth+1)
-            if temp not in err_msg:
-                return temp
-        return wikiDefgen(KP,err_msg[1])
-    
-    final_def = wiktPredictBERT(wikt_query, source_text)
-        
-    requery_arr = ['Initialism of', 'plural of', 'genitive singular of']
-    for pattern in requery_arr:
-        if depth==0 and final_def.startswith(pattern):
-            final_def += '; ' + defgen(final_def.replace(pattern,'').replace('.','').strip(), pos, source_text, depth+1)
-            break
-    temp_toks = nltk.word_tokenize(final_def)
-    if depth<=1 and len((KP).split())==1 and lev(KP.lower(),temp_toks[-1].lower())>=0.85:
-        final_def += '; ' + defgen(temp_toks[-1], pos, source_text, depth+1)
-        
-    return final_def
-        
+def definitionCandidateGenerator(KP, pos):
+    wikt_query = parser.fetch(KP)
 
-    
+    if not wikt_query or not wikt_query[0]['definitions']:
+        if any([grammar in KP for grammar in [' - '," ' "]]):
+            return definitionCandidateGenerator(KP.replace(' - ','-').replace(" ' ","'"), pos)
+        else:
+            return KP, [{'cat':None, 'def':wikiDefgen(KP,err_msg[1])}]
+
+    wikt_query = wiktDictSimplify(wikt_query)
+    if pos in wikt_query.keys():
+        return KP, wikt_query[pos]
+    else:
+        return KP, sum(wikt_query.values(),[])
+
+
+
 def glogen(source_text, see_missing=False):
+    requery_arr = ['Initialism of', 'plural of', 'genitive singular of', 'Short for']
+    pattern = '|'.join(requery_arr)
+
     KPs = topKPs(cleanText(source_text))
+
     final = {}
-    for KP,pos in tqdm(KPs.items(), 'defgen'):
-        KP = KP.replace(' - ','-').replace(" ' ","'")
-        temp_def = defgen(KP,pos,source_text)
-        if temp_def not in err_msg:
-            final[KP] = temp_def
-        elif see_missing:
-            final[KP] = temp_def
+    with ProcessPoolExecutor() as executor:
+        candidates = list(tqdm(executor.map(definitionCandidateGenerator,[ele[0] for ele in KPs.items()],[ele[1] for ele in KPs.items()]), total=len(KPs), desc='defgen'))
+
+    for cnd in candidates:
+        final[cnd[0]] = wiktPredictBERT(cnd[1], source_text)
+        if cnd:
+            final[cnd[0]] = wiktPredictBERT(cnd[1], source_text)
+            if any([final[cnd[0]].startswith(substr) for substr in requery_arr]):
+                temp = re.sub(pattern, '', final[cnd[0]]).strip().replace('.','')
+                final[cnd[0]] += '; ' + wiktPredictBERT(definitionCandidateGenerator(temp,'')[1], source_text)
+
+    if not see_missing:
+        return {k:v for k,v in final.items() if v not in err_msg}
+
+    return final
+
+
+def glogenIterator(pdf_dict):
+    final = {}
+    for k,v in pdf_dict.items():
+        final[k] = glogen(v)
     return final

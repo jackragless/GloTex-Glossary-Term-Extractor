@@ -9,18 +9,20 @@ def baseRedirect(request):
     return redirect(text)
 
 def document(request):
-    # if request.method == 'POST':
-    #     uploaded_files = request.FILES.getlist('document_upload')
-    #     files_dict = {}
-    #     if len(uploaded_files)>0:
-    #         for file in uploaded_files:
-    #             if file.name.endswith('.pdf'):
-    #                 files_dict[file.name] = pdf_to_text.extract(file)
-    #             elif file.name.endswith('.txt'):
-    #                 files_dict[file.name] = file.read()
-    #     request.session['download'] = json.dumps(ai_kw_detect.predictIterator(files_dict))
-    #     request.session.save()
-    #     return redirect('../download')
+    if request.method == 'POST':
+        uploaded_files = request.FILES.getlist('document_upload')
+        files_dict = {}
+        if len(uploaded_files)>0:
+            for file in uploaded_files:
+                if file.name.endswith('.pdf'):
+                    files_dict[file.name] = pdf_to_text.extract(file)
+                elif file.name.endswith('.txt'):
+                    files_dict[file.name] = file.read()
+        # print(files_dict)
+        request.session['download'] = json.dumps(glogen.glogenIterator(files_dict))
+        # request.session['download'] = json.dumps(files_dict)
+        request.session.save()
+        return redirect('../download')
 
     return render(request, 'document.html')
 

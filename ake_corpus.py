@@ -81,11 +81,8 @@ def cleanChinkWikiPage(page_obj):
 		'not_person': not (KP in person_set)
 		}
 
-		# filt_kps[KP] = condition_dict
 		if all(condition_dict.values()):
 		    filt_kps[KP] = URL
-		# else:
-		    # filt_kps['DEL '+str(KP)] = URL
 
 	page_obj['kps'] = filt_kps
 	return page_obj
@@ -118,11 +115,6 @@ corpus = {page['title']:dict(itertools.islice(page.items(),1,None)) for page in 
 #kp_pool
 ###########################################################################################
 ###########################################################################################
-# corpus = pickle.load( open( "data/M2_save.pkl", "rb" ) )
-# corpus = {page['title']:dict(itertools.islice(page.items(),1,None)) for page in corpus}
-# for k in corpus.keys():
-# 	corpus[k]['kps'] = corpus[k]['kws']
-# 	del corpus[k]['kws']
 
 def textToNgramSet(text):
 	ngram_set = set()

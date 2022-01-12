@@ -44,9 +44,7 @@ penn2wikt = {'CC': 'conjunction', 'CD': 'numeral', 'DT': 'determiner',
  'RP': 'particle', 'SYM': 'symbol', 'TO': 'preposition', 'UH': 'interjection', 
  'VB': 'verb', 'VBD': 'verb', 'VBG': 'participle', 'VBN': 'participle', 
  'VBP': 'verb', 'VBZ': 'verb', 'WDT': 'determiner', 
- 'WP': 'pronoun', 'WP$': 'pronoun', 'WRB': 'adverb', '#':'punct',
- '$':'punct', '“':'punct', '``':'punct', '(':'punct', ')':'punct',
- ',':'punct', ':':'punct'}
+ 'WP': 'pronoun', 'WP$': 'pronoun', 'WRB': 'adverb'}
 
 tokenizer = transformers.AutoTokenizer.from_pretrained(data_loc+model_dirname)
 assert isinstance(tokenizer, transformers.PreTrainedTokenizerFast)
@@ -102,7 +100,10 @@ def KPParse(bert_preds, lev_ratio):
 		else:
 			if tempKP:
 				if len(pos_arr)==1:
-					pos = penn2wikt[pos_arr[0]]
+					if pos in penn2wikt.keys():
+						pos = penn2wikt[pos_arr[0]]
+					else:
+						pos = 'other'
 				elif 'VB' in pos_arr:
 					pos = 'verb'
 				else:
@@ -166,7 +167,7 @@ def wikiDefgen(KP, err_msg='Wikipedia page not found!'):
 	try:
 		wiki_def = wikipedia.summary(KP,auto_suggest=False)
 		return wiki_def.split('.')[0]+'.'
-	except (wikipedia.exceptions.PageError,wikipedia.DisambiguationError):
+	except:
 		pass
 	return err_msg	
 
@@ -207,33 +208,6 @@ def glogen(source_text, see_missing=False):
 				final[cnd[0]] += '; ' + wiktPredictBERT(definitionCandidateGenerator(temp,'')[1], source_text)
 
 	if not see_missing:
-		return {k:v for k,v in final.items() if v not in err_msg}
+		return {k:final[k].replace('\n','') for k in sorted(final.keys()) if final[k] not in err_msg}
 
 	return final
-
-
-
-
-# exc_pgs = {'Welfare economics',
-#  'Information cascade',
-#  'Contango',
-#  'Quantum pseudo-telepathy',
-#  'Credit risk',
-#  'Beggar thy neighbour',
-#  'Interest rate parity',
-#  'Shareholder ownership value',
-#  'Von Neumann–Morgenstern utility theorem',
-#  'Exchange-traded product'}
-
-# for page in exc_pgs:
-# 	raw_text = wikipedia.summary(page, auto_suggest=False)
-# 	defs = glogen(raw_text, True)
-	# [print(item) for item in defs.items()]
-# 	print('\n\n')
-
-
-# f = open('/home/jackragless/Downloads/adam_smith.txt','r').read()
-# print(glogen(f))
-
-
-

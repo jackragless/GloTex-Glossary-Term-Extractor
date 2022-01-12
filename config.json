@@ -36,6 +36,6 @@
 	},
 
 	"glogen":{
-		"model_dirname":"bert-model-25k-1st"
+		"model_dirname":"distilbert-base-cased-finetuned-doctrine50k/checkpoint-318480/"
 	}
 }
