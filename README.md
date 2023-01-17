@@ -1,6 +1,6 @@
 # GloGen: _automatic domain-specific GLOssary Generator_
 
-![Alt Text](https://drive.google.com/uc?export=view&id=1bQbEZ71STrAEyLSsUrM_Y_NLqDK2LG1l)
+![Alt Text](media/demo.gif)
 
 ## How Does It Work?  
 
